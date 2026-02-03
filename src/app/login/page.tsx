@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Shield, Loader2, Mail, Lock } from "lucide-react";
+import { useState } from "react";
+import { Shield, Loader2, Mail, Lock, Chrome } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -47,6 +48,23 @@ export default function LoginPage() {
         }
     };
 
+    const handleGoogleAuth = async () => {
+        setIsLoading(true);
+        try {
+            const { error } = await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback`,
+                },
+            });
+            if (error) throw error;
+        } catch (err) {
+            const error = err as Error;
+            setError(error.message || "Google Authentication Failed");
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen w-full bg-background flex items-center justify-center p-4 font-mono">
             {/* Background Grain Effect */}
@@ -75,6 +93,21 @@ export default function LoginPage() {
                             caret-color: white !important;
                         }
                     `}</style>
+
+                    <button
+                        onClick={handleGoogleAuth}
+                        disabled={isLoading}
+                        className="w-full bg-white text-black py-3 mb-6 font-bold uppercase text-[10px] tracking-[0.2em] hover:bg-gray-200 transition-colors flex items-center justify-center gap-3 border border-white/20"
+                    >
+                        {isLoading ? <Loader2 className="animate-spin" size={14} /> : <Chrome size={14} />}
+                        <span>Connect_via_Google</span>
+                    </button>
+
+                    <div className="flex items-center gap-4 mb-6">
+                        <div className="h-px bg-border flex-1 opacity-20" />
+                        <span className="text-[9px] uppercase tracking-widest text-muted-foreground font-bold">OR_USE_PROTOCOL</span>
+                        <div className="h-px bg-border flex-1 opacity-20" />
+                    </div>
 
                     <form onSubmit={handleAuth} className="space-y-4">
                         <div className="space-y-1">
