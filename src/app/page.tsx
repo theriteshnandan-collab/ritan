@@ -17,7 +17,10 @@ export default function Home() {
     try {
       const response = await fetch("/api/v1/pdf", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer re_live_demo_key_123"
+        },
         body: JSON.stringify({
           html: "<h1>Hello from PDF-Jet</h1><p>This is a test document.</p>",
           options: { format: "A4" }
