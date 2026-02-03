@@ -1,4 +1,6 @@
 "use client";
+// Force Vercel Rebuild: v1.2.2
+
 
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
