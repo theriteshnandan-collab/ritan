@@ -8,24 +8,90 @@ export default function Laboratory() {
 <html>
 <head>
   <style>
-    body { font-family: sans-serif; padding: 40px; }
-    .header { border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
-    .title { color: #FF4F00; font-size: 24px; font-weight: bold; }
-    .content { font-size: 14px; line-height: 1.6; }
+    :root { --primary: #FF4F00; --text: #1a1a1a; --border: #e2e8f0; }
+    body { font-family: 'Inter', system-ui, sans-serif; padding: 60px; color: var(--text); line-height: 1.5; margin: 0; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 60px; }
+    .logo { background: var(--primary); color: white; padding: 10px 20px; font-weight: 900; letter-spacing: -0.05em; font-size: 24px; }
+    .invoice-details { text-align: right; }
+    .label { text-transform: uppercase; font-size: 10px; font-weight: 800; color: #64748b; letter-spacing: 0.1em; margin-bottom: 4px; }
+    .value { font-weight: 700; font-size: 14px; }
+    .bill-grid { display: grid; grid-template-cols: 1fr 1fr; gap: 40px; margin-bottom: 60px; }
+    .bill-to h3 { margin: 0 0 10px 0; font-size: 16px; font-weight: 800; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 60px; }
+    th { text-align: left; padding: 12px 0; border-bottom: 2px solid var(--text); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; }
+    td { padding: 20px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+    .total-section { display: flex; justify-content: flex-end; }
+    .total-box { background: #f8fafc; padding: 30px; width: 250px; }
+    .total-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+    .grand-total { border-top: 2px solid var(--text); margin-top: 15px; padding-top: 15px; font-weight: 900; font-size: 20px; }
   </style>
 </head>
 <body>
   <div class="header">
-    <div class="title">PDF-JET TEMPLATE</div>
+    <div class="logo">PDF-JET</div>
+    <div class="invoice-details">
+      <div class="label">Invoice No</div>
+      <div class="value">#JET-2024-001</div>
+      <div style="margin-top: 15px;">
+        <div class="label">Issue Date</div>
+        <div class="value">Feb 03, 2026</div>
+      </div>
+    </div>
   </div>
-  <div class="content">
-    <h1>Hello World</h1>
-    <p>This is a live preview of your PDF-Jet template.</p>
-    <ul>
-      <li>Fast</li>
-      <li>Minimal</li>
-      <li>Industrial</li>
-    </ul>
+
+  <div class="bill-grid">
+    <div class="bill-to">
+      <div class="label">Bill To</div>
+      <h3>ACME CORP INTERNATIONAL</h3>
+      <p style="font-size: 12px; color: #475569; margin: 0;">123 Innovation Drive<br>Silicon Valley, CA 94025</p>
+    </div>
+    <div class="bill-from">
+      <div class="label">Issued By</div>
+      <h3>PDF-JET INC.</h3>
+      <p style="font-size: 12px; color: #475569; margin: 0;">Antigravity HQ<br>Orbit-1, Digital Space</p>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th style="text-align: right;">Qty</th>
+        <th style="text-align: right;">Rate</th>
+        <th style="text-align: right;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>Cloud PDF API Tier 1</strong><br><span style="font-size: 11px; color: #64748b;">Unlimited renders, high-priority queue.</span></td>
+        <td style="text-align: right;">1</td>
+        <td style="text-align: right;">$499.00</td>
+        <td style="text-align: right;">$499.00</td>
+      </tr>
+      <tr>
+        <td><strong>Custom Template Design</strong><br><span style="font-size: 11px; color: #64748b;">Bespoke "Industrial Glass" PDF styling.</span></td>
+        <td style="text-align: right;">4</td>
+        <td style="text-align: right;">$250.00</td>
+        <td style="text-align: right;">$1,000.00</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="total-section">
+    <div class="total-box">
+      <div class="total-row">
+        <span class="label">Subtotal</span>
+        <span class="value">$1,499.00</span>
+      </div>
+      <div class="total-row">
+        <span class="label">Tax (0%)</span>
+        <span class="value">$0.00</span>
+      </div>
+      <div class="total-row grand-total">
+        <span>TOTAL</span>
+        <span>$1,499.00</span>
+      </div>
+    </div>
   </div>
 </body>
 </html>`);
