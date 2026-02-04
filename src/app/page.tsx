@@ -261,28 +261,56 @@ export default function Home() {
                 </div>
                 <div className="flex gap-4">
                   <button
-                    onClick={() => {
-                      const options = {
-                        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_placeholder",
-                        amount: 250000, // 2500 INR
-                        currency: "INR",
-                        name: "PDF-JET Pro",
-                        description: "Monthly Subscription",
-                        image: "https://pdf-jet-cyan.vercel.app/logo.png",
-                        handler: function (response: any) {
-                          alert("Payment Successful: " + response.razorpay_payment_id);
-                          // In the next brick, we will update the DB tier here
-                        },
-                        prefill: {
-                          name: user?.email?.split('@')[0],
-                          email: user?.email,
-                        },
-                        theme: {
-                          color: "#FF4F00",
-                        },
-                      };
-                      const rzp = new (window as any).Razorpay(options);
-                      rzp.open();
+                    onClick={async () => {
+                      try {
+                        // 1. Create Order on Server
+                        const orderRes = await fetch("/api/v1/billing/create-order", { method: "POST" });
+                        const { orderId, error: orderError } = await orderRes.json();
+
+                        if (orderError) throw new Error(orderError);
+
+                        // 2. Open Razorpay
+                        const options = {
+                          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_placeholder",
+                          amount: 250000,
+                          currency: "INR",
+                          name: "PDF-JET Pro",
+                          description: "Monthly Subscription",
+                          order_id: orderId,
+                          handler: async function (response: any) {
+                            // 3. Verify Payment on Server
+                            const verifyRes = await fetch("/api/v1/billing/verify", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                razorpay_order_id: response.razorpay_order_id,
+                                razorpay_payment_id: response.razorpay_payment_id,
+                                razorpay_signature: response.razorpay_signature,
+                              }),
+                            });
+
+                            const verifyData = await verifyRes.json();
+                            if (verifyData.success) {
+                              alert("WELCOME TO PRO TIER! 🚀");
+                              window.location.reload();
+                            } else {
+                              alert("Verification Failed: " + verifyData.error);
+                            }
+                          },
+                          prefill: {
+                            email: user?.email,
+                          },
+                          theme: {
+                            color: "#FF4F00",
+                          },
+                        };
+
+                        const rzp = new (window as any).Razorpay(options);
+                        rzp.open();
+
+                      } catch (err: any) {
+                        alert("Billing Error: " + err.message);
+                      }
                     }}
                     className="px-4 py-2 bg-white text-black text-xs font-bold uppercase tracking-widest hover:opacity-90"
                   >
