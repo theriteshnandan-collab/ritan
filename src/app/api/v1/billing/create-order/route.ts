@@ -8,7 +8,7 @@ const razorpay = new Razorpay({
     key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
-export async function POST(_req: NextRequest) {
+export async function POST() {
     try {
         const cookieStore = cookies();
         const supabase = createServerClient(

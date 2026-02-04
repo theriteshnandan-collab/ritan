@@ -305,7 +305,8 @@ export default function Home() {
                           },
                         };
 
-                        const rzp = new (window as any).Razorpay(options);
+                        const Razorpay = (window as unknown as { Razorpay: any }).Razorpay;
+                        const rzp = new Razorpay(options);
                         rzp.open();
 
                       } catch (error) {
