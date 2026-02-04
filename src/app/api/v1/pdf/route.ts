@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import puppeteer, { PaperFormat } from "puppeteer";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+import puppeteer, { PaperFormat } from "puppeteer";
 
 // 1. Validation Schema (The "Contract")
 const PdfRequestSchema = z.object({
@@ -48,16 +51,74 @@ async function getBrowser() {
 
 export async function POST(req: NextRequest) {
     try {
-        // 2.A Security Check (Replaces Middleware)
-        const authHeader = req.headers.get("authorization");
-        if (!authHeader || !authHeader.startsWith("Bearer re_")) {
-            return NextResponse.json(
-                { error: "Unauthorized", message: "Missing or invalid API Key. Please visit the Vault." },
-                { status: 401 }
-            );
+        // 1. Initialize Supabase Server Client
+        const cookieStore = cookies();
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                cookies: {
+                    getAll() { return cookieStore.getAll() },
+                    setAll(cookiesToSet) {
+                        try {
+                            cookiesToSet.forEach(({ name, value, options }) =>
+                                cookieStore.set(name, value, options)
+                            )
+                        } catch {
+                            // The `setAll` method was called from a Server Component.
+                            // This can be ignored if you have middleware refreshing
+                            // user sessions.
+                        }
+                    },
+                },
+            }
+        );
+
+        // 2. Identify User
+        const { data: { user } } = await supabase.auth.getUser();
+        let userId = null;
+
+        if (user) {
+            userId = user.id;
+
+            // 3. User Logic: Check Limits
+            const { data: metrics } = await supabase
+                .from('usage_metrics')
+                .select('request_count, tier')
+                .eq('user_id', userId)
+                .single();
+
+            // Default limit: 100 for Free Tier
+            const MAX_REQUESTS = metrics?.tier === 'pro' ? 10000 : 100;
+            const currentUsage = metrics?.request_count || 0;
+
+            if (currentUsage >= MAX_REQUESTS) {
+                return NextResponse.json(
+                    { error: "Rate Limit Exceeded", message: `You have reached your ${metrics?.tier || 'free'} tier limit. Upgrade to generate more documents.` },
+                    { status: 429 }
+                );
+            }
+
+            // 4. Increment Usage
+            // (Note: For high concurrency, use a Database RPC. For now, simple update is fine)
+            await supabase
+                .from('usage_metrics')
+                .update({ request_count: currentUsage + 1, last_request_at: new Date().toISOString() })
+                .eq('user_id', userId);
+
+        } else {
+            // 2.B Fallback: Check for Legacy API Key (Demo Mode)
+            const authHeader = req.headers.get("authorization");
+            if (!authHeader || !authHeader.startsWith("Bearer re_")) {
+                return NextResponse.json(
+                    { error: "Unauthorized", message: "Missing API Key or valid Session." },
+                    { status: 401 }
+                );
+            }
+            // Demo key logic proceeds... matches existing behavior
         }
 
-        // 2.B Parse Body
+        // 5. Parse Body
         const body = await req.json();
         const result = PdfRequestSchema.safeParse(body);
 
@@ -70,14 +131,11 @@ export async function POST(req: NextRequest) {
 
         const { html, options } = result.data;
 
-        // 3. Launch "The Worker" (Dual Engine)
+        // 6. Launch Browser
         const browser = await getBrowser();
         const page = await browser.newPage();
 
-        // 4. Load Content
         await page.setContent(html, { waitUntil: "networkidle0" });
-
-        // 5. Enhance visuals
         await page.addStyleTag({
             content: `
             body { -webkit-print-color-adjust: exact; margin: 0; }
@@ -85,7 +143,6 @@ export async function POST(req: NextRequest) {
         `
         });
 
-        // 6. Generate PDF
         const pdfBuffer = await page.pdf({
             format: (options?.format as PaperFormat) || "A4",
             printBackground: options?.printBackground ?? true,
@@ -95,7 +152,6 @@ export async function POST(req: NextRequest) {
 
         await browser.close();
 
-        // 7. Return the Asset
         return new NextResponse(pdfBuffer as unknown as BodyInit, {
             status: 200,
             headers: {
@@ -110,7 +166,6 @@ export async function POST(req: NextRequest) {
             {
                 error: "Internal Server Error",
                 message: error instanceof Error ? error.message : "Unknown error",
-                stack: error instanceof Error ? error.stack : undefined
             },
             { status: 500 }
         );
