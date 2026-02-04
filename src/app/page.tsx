@@ -260,7 +260,34 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="flex gap-4">
-                  <button className="px-4 py-2 bg-white text-black text-xs font-bold uppercase tracking-widest hover:opacity-90">Manage Billing</button>
+                  <button
+                    onClick={() => {
+                      const options = {
+                        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || "rzp_test_placeholder",
+                        amount: 250000, // 2500 INR
+                        currency: "INR",
+                        name: "PDF-JET Pro",
+                        description: "Monthly Subscription",
+                        image: "https://pdf-jet-cyan.vercel.app/logo.png",
+                        handler: function (response: any) {
+                          alert("Payment Successful: " + response.razorpay_payment_id);
+                          // In the next brick, we will update the DB tier here
+                        },
+                        prefill: {
+                          name: user?.email?.split('@')[0],
+                          email: user?.email,
+                        },
+                        theme: {
+                          color: "#FF4F00",
+                        },
+                      };
+                      const rzp = new (window as any).Razorpay(options);
+                      rzp.open();
+                    }}
+                    className="px-4 py-2 bg-white text-black text-xs font-bold uppercase tracking-widest hover:opacity-90"
+                  >
+                    Manage Billing
+                  </button>
                   <button className="px-4 py-2 border border-white/20 text-white text-xs font-bold uppercase tracking-widest hover:bg-white/10">View Invoices</button>
                 </div>
               </div>
