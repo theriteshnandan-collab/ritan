@@ -7,8 +7,34 @@ import { User } from "@supabase/supabase-js";
 export default function Vault({ user }: { user: User | null }) {
     // For now, keys are handled locally or via an upcoming 'keys' table.
     // We will show 0 keys and a prompt to create one.
-    const [keys] = useState<{ id: string; label: string; prefix: string; secret: string; created: string }[]>([]);
+    const [keys, setKeys] = useState<{ id: string; label: string; prefix: string; created: string }[]>([]);
     const [isVisible, setIsVisible] = useState(false);
+    const [freshKey, setFreshKey] = useState<string | null>(null);
+
+    const handleRollKey = async () => {
+        if (!confirm("This will generate a new secret key. You must save it immediately.")) return;
+
+        try {
+            const res = await fetch("/api/v1/keys/roll", { method: "POST" });
+            const data = await res.json();
+
+            if (data.success) {
+                setFreshKey(data.apiKey);
+                // In a real app, we would re-fetch the list here. 
+                // For this MVP, we will optimistically add it to the UI list (mocking the ID/Date for speed)
+                setKeys(prev => [...prev, {
+                    id: crypto.randomUUID(),
+                    label: "Production Key",
+                    prefix: "sk_live_",
+                    created: new Date().toISOString().split('T')[0]
+                }]);
+            } else {
+                alert("Error: " + data.error);
+            }
+        } catch (err) {
+            alert("Failed to roll key");
+        }
+    };
 
     return (
         <div className="flex-1 flex flex-col h-full bg-background overflow-hidden font-mono">
