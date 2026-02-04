@@ -3,6 +3,8 @@ import crypto from "crypto";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
     try {
         const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = await req.json();
