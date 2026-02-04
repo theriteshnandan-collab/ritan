@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Shield, RefreshCw, Eye, EyeOff, Activity, Lock } from "lucide-react";
+import { Copy, Shield, RefreshCw, Activity, Lock } from "lucide-react";
 import { User } from "@supabase/supabase-js";
 
 export default function Vault({ user }: { user: User | null }) {
     // For now, keys are handled locally or via an upcoming 'keys' table.
     // We will show 0 keys and a prompt to create one.
     const [keys, setKeys] = useState<{ id: string; label: string; prefix: string; created: string }[]>([]);
-    const [isVisible, setIsVisible] = useState(false);
     const [freshKey, setFreshKey] = useState<string | null>(null);
 
     const handleRollKey = async () => {
