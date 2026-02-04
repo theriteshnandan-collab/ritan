@@ -7,9 +7,8 @@ import { User } from "@supabase/supabase-js";
 export default function Vault({ user }: { user: User | null }) {
     // For now, keys are handled locally or via an upcoming 'keys' table.
     // We will show 0 keys and a prompt to create one.
-    const [keys, setKeys] = useState<any[]>([]);
+    const [keys] = useState<{ id: string; label: string; prefix: string; secret: string; created: string }[]>([]);
     const [isVisible, setIsVisible] = useState(false);
-    const [usage, setUsage] = useState(0);
 
     return (
         <div className="flex-1 flex flex-col h-full bg-background overflow-hidden font-mono">
