@@ -31,7 +31,7 @@ export default function Vault({ user }: { user: User | null }) {
             } else {
                 alert("Error: " + data.error);
             }
-        } catch (err) {
+        } catch {
             alert("Failed to roll key");
         }
     };
