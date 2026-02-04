@@ -109,12 +109,9 @@ export default function Vault({ user }: { user: User | null }) {
                                 <div className="font-bold">{key.label}</div>
                                 <div className="font-mono text-muted-foreground flex items-center gap-2">
                                     <span className="text-primary">{key.prefix}</span>
-                                    <span className={isVisible ? "text-foreground" : "blur-sm select-none transition-all"}>
-                                        {isVisible ? key.secret.replace("re_", "") : "•••••••••••••••••••••"}
+                                    <span className="blur-sm select-none transition-all text-muted-foreground opacity-50">
+                                        •••••••••••••••••••••
                                     </span>
-                                    <button onClick={() => setIsVisible(!isVisible)} className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-white">
-                                        {isVisible ? <EyeOff size={12} /> : <Eye size={12} />}
-                                    </button>
                                 </div>
                                 <div className="text-muted-foreground tabular-nums">{key.created}</div>
                                 <div className="flex items-center gap-2">
