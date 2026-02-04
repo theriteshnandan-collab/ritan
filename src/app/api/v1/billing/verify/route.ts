@@ -49,8 +49,9 @@ export async function POST(req: NextRequest) {
 
         return NextResponse.json({ success: true, message: "Account Upgraded to PRO" });
 
-    } catch (error: any) {
-        console.error("Verification Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error) {
+        const err = error as Error;
+        console.error("Verification Error:", err);
+        return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }

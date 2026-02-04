@@ -8,7 +8,7 @@ const razorpay = new Razorpay({
     key_secret: process.env.RAZORPAY_KEY_SECRET!,
 });
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
     try {
         const cookieStore = cookies();
         const supabase = createServerClient(
@@ -34,8 +34,9 @@ export async function POST(req: NextRequest) {
         });
 
         return NextResponse.json({ orderId: order.id });
-    } catch (error: any) {
-        console.error("Razorpay Order Error:", error);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error) {
+        const err = error as Error;
+        console.error("Razorpay Order Error:", err);
+        return NextResponse.json({ error: err.message }, { status: 500 });
     }
 }

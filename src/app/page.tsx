@@ -277,7 +277,7 @@ export default function Home() {
                           name: "PDF-JET Pro",
                           description: "Monthly Subscription",
                           order_id: orderId,
-                          handler: async function (response: any) {
+                          handler: async function (response: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) {
                             // 3. Verify Payment on Server
                             const verifyRes = await fetch("/api/v1/billing/verify", {
                               method: "POST",
@@ -298,7 +298,7 @@ export default function Home() {
                             }
                           },
                           prefill: {
-                            email: user?.email,
+                            email: user?.email || "",
                           },
                           theme: {
                             color: "#FF4F00",
@@ -308,7 +308,8 @@ export default function Home() {
                         const rzp = new (window as any).Razorpay(options);
                         rzp.open();
 
-                      } catch (err: any) {
+                      } catch (error) {
+                        const err = error as Error;
                         alert("Billing Error: " + err.message);
                       }
                     }}
