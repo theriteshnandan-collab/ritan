@@ -306,6 +306,7 @@ export default function Home() {
                         };
 
                         interface RazorpayWindow extends Window {
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
                           Razorpay: any;
                         }
                         const rzp = new (window as unknown as RazorpayWindow).Razorpay(options);
