@@ -209,17 +209,15 @@ export default function Home() {
               <div>Template</div>
               <div>Timestamp</div>
             </div>
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="grid grid-cols-4 p-4 border-b border-white/5 hover:bg-white/5 transition-colors text-xs items-center">
-                <div className="flex items-center gap-2">
-                  <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full" />
-                  <span className="font-bold text-emerald-500">200_OK</span>
-                </div>
-                <div className="font-mono text-muted-foreground opacity-70">jet_{Math.random().toString(36).substring(7)}</div>
-                <div><span className="px-2 py-1 border border-white/10 text-[10px] font-bold bg-white/5">INVOICE_V1</span></div>
-                <div className="text-muted-foreground tabular-nums">14:02:12</div>
+            <div className="p-12 text-center border-t border-white/5 bg-white/[0.02]">
+              <div className="inline-flex items-center justify-center w-12 h-12 border border-white/10 rounded-full mb-4 opacity-50">
+                <FileText size={20} className="text-muted-foreground" />
               </div>
-            ))}
+              <div className="text-xs font-bold uppercase tracking-[0.2em] text-white">No Activity Recorded</div>
+              <p className="text-[10px] text-muted-foreground mt-2 max-w-[200px] mx-auto leading-relaxed">
+                Generate your first document via API or the Laboratory to see logs here.
+              </p>
+            </div>
           </div>
         </main>
       )}
