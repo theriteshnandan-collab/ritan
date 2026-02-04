@@ -112,7 +112,7 @@ export default function Vault({ user }: { user: User | null }) {
                     <Activity className="text-muted-foreground mb-4 opacity-10" size={32} />
                     <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-white/30">Analytics Engine Offline</div>
                     <div className="text-[8px] text-muted-foreground mt-1 max-w-sm uppercase tracking-tighter opacity-50">
-                        Traffic visualization is enabled for enterprise accounts with > 10,000 monthly requests.
+                        Traffic visualization is enabled for enterprise accounts with &gt; 10,000 monthly requests.
                     </div>
                 </div>
 
