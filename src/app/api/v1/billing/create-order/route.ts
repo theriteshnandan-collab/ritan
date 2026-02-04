@@ -16,34 +16,35 @@ export async function POST() {
             console.error("Missing Razorpay Keys in environment");
             return NextResponse.json({ error: "Billing setup incomplete" }, { status: 500 });
         }
-        try {
-            const cookieStore = cookies();
-            const supabase = createServerClient(
-                process.env.NEXT_PUBLIC_SUPABASE_URL!,
-                process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                {
-                    cookies: {
-                        getAll() { return cookieStore.getAll() },
-                        setAll() { } // Read only here
-                    }
+
+        const cookieStore = cookies();
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                cookies: {
+                    getAll() { return cookieStore.getAll() },
+                    setAll() { } // Read only here
                 }
-            );
-
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
             }
+        );
 
-            const order = await razorpay.orders.create({
-                amount: 250000, // ₹2500 INR
-                currency: "INR",
-                receipt: `receipt_${user.id.substring(0, 10)}`,
-            });
-
-            return NextResponse.json({ orderId: order.id });
-        } catch (error) {
-            const err = error as Error;
-            console.error("Razorpay Order Error:", err);
-            return NextResponse.json({ error: err.message }, { status: 500 });
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+            return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
+
+        const order = await razorpay.orders.create({
+            amount: 250000, // ₹2500 INR
+            currency: "INR",
+            receipt: `receipt_${user.id.substring(0, 10)}`,
+        });
+
+        return NextResponse.json({ orderId: order.id });
+
+    } catch (error) {
+        const err = error as Error;
+        console.error("Razorpay Order Error:", err);
+        return NextResponse.json({ error: err.message }, { status: 500 });
     }
+}
