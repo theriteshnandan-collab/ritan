@@ -4,6 +4,7 @@ import { GeistMono } from 'geist/font/mono';
 import "./globals.css";
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://pdf-jet-cyan.vercel.app"),
   title: "RITAN | The Universal API",
   description: "One Key. All Tools. The infrastructure of the internet.",
   icons: {
