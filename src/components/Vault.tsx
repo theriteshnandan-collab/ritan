@@ -1,189 +1,111 @@
 "use client";
 
-import { useState } from "react";
-import { Copy, Shield, RefreshCw, Activity, Lock } from "lucide-react";
-import { User } from "@supabase/supabase-js";
+import { useState, useEffect } from "react";
+import { Key, Copy, Plus, AlertTriangle, Eye, EyeOff } from "lucide-react";
+import { ApiKey } from "@/lib/types/schema";
 
-export default function Vault({ user }: { user: User | null }) {
-    // For now, keys are handled locally or via an upcoming 'keys' table.
-    // We will show 0 keys and a prompt to create one.
-    const [keys, setKeys] = useState<{ id: string; label: string; prefix: string; created: string }[]>([]);
-    const [freshKey, setFreshKey] = useState<string | null>(null);
+export default function Vault() {
+    const [keys, setKeys] = useState<ApiKey[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [newKey, setNewKey] = useState<string | null>(null);
 
-    const handleRevoke = async (id: string) => {
-        if (!confirm("Are you sure? This will immediately invalidate the key.")) return;
-        try {
-            const res = await fetch("/api/v1/keys/revoke", {
-                method: "POST",
-                body: JSON.stringify({ keyId: id })
-            });
-            if (res.ok) {
-                setKeys(prev => prev.filter(k => k.id !== id));
-            } else {
-                alert("Failed to revoke key");
-            }
-        } catch {
-            alert("Error revoking key");
+    useEffect(() => {
+        fetchKeys();
+    }, []);
+
+    const fetchKeys = async () => {
+        const res = await fetch("/api/dashboard/keys");
+        const data = await res.json();
+        if (data.success) {
+            setKeys(data.data);
         }
+        setLoading(false);
     };
 
-    const handleRollKey = async () => {
-        if (!confirm("This will generate a new secret key. You must save it immediately.")) return;
-
-        try {
-            const res = await fetch("/api/v1/keys/roll", { method: "POST" });
-            const data = await res.json();
-
-            if (data.success) {
-                setFreshKey(data.apiKey);
-                // In a real app, we would re-fetch the list here. 
-                // For this MVP, we will optimistically add it to the UI list (mocking the ID/Date for speed)
-                setKeys(prev => [...prev, {
-                    id: crypto.randomUUID(),
-                    label: "Production Key",
-                    prefix: "sk_live_",
-                    created: new Date().toISOString().split('T')[0]
-                }]);
-            } else {
-                alert("Error: " + data.error);
-            }
-        } catch {
-            alert("Failed to roll key");
+    const createKey = async () => {
+        const name = `Key ${keys.length + 1}`;
+        const res = await fetch("/api/dashboard/keys", {
+            method: "POST",
+            body: JSON.stringify({ name }),
+        });
+        const data = await res.json();
+        if (data.success) {
+            setNewKey(data.data.secret_key); // Use the Full Secret Key returned only once
+            fetchKeys();
         }
     };
 
     return (
-        <div className="flex-1 flex flex-col h-full bg-background overflow-hidden font-mono">
-            <header className="h-14 border-b border-[var(--border)] flex items-center justify-between px-6 shrink-0 bg-[#0A0A0A]">
-                <div className="flex items-center gap-4">
-                    <h2 className="font-bold text-lg uppercase tracking-wider text-white">The Vault</h2>
-                    <span className="text-[10px] bg-red-900/40 text-red-500 px-2 py-0.5 border border-red-900 uppercase font-bold tracking-widest flex items-center gap-2">
-                        <Lock size={10} />
-                        Restricted Area
-                    </span>
+        <div className="max-w-4xl mx-auto">
+            <div className="flex items-center justify-between mb-8">
+                <div>
+                    <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                        <Key className="w-5 h-5 text-[#FF4F00]" />
+                        API Vault
+                    </h2>
+                    <p className="text-[#666] text-sm mt-1">Manage your secure access credentials.</p>
                 </div>
-                <div className="flex items-center gap-6 text-xs text-muted-foreground">
-                    <div className="flex items-center gap-2">
-                        <span className="tracking-widest uppercase">Operator:</span>
-                        <span className="text-primary font-bold">{user?.email || "UNKNOWN"}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-success rounded-full animate-pulse" />
-                        <span className="tracking-widest uppercase">Encryption: AES-256</span>
-                    </div>
-                </div>
-            </header>
+                <button
+                    onClick={createKey}
+                    className="btn-primary flex items-center gap-2"
+                >
+                    <Plus size={16} />
+                    Generate New Key
+                </button>
+            </div>
 
-            <div className="flex-1 p-8 overflow-auto">
+            {newKey && (
+                <div className="mb-8 p-6 rounded-xl border border-[#FF4F00]/20 bg-[#FF4F00]/5 animate-in fade-in slide-in-from-top-4">
+                    <div className="flex items-start gap-4">
+                        <AlertTriangle className="text-[#FF4F00] w-5 h-5 mt-0.5" />
+                        <div className="flex-1">
+                            <h3 className="text-white font-bold mb-1">Store this key immediately</h3>
+                            <p className="text-[#888] text-xs mb-4">It will never be shown again. If you lose it, you will need to generate a new one.</p>
 
-                {/* Metric Cards */}
-                <div className="grid grid-cols-3 gap-4 mb-8">
-                    <div className="border border-[var(--border)] p-4 relative group hover:border-primary transition-colors bg-black/20">
-                        <div className="absolute top-2 right-2 opacity-20 group-hover:opacity-100 transition-opacity text-primary"><Activity size={16} /></div>
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Total Requests</div>
-                        <div className="text-2xl font-bold">0</div>
-                        <div className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1 italic">Awaiting API traffic...</div>
-                    </div>
-                    <div className="border border-[var(--border)] p-4 relative group hover:border-primary transition-colors bg-black/20">
-                        <div className="absolute top-2 right-2 opacity-20 group-hover:opacity-100 transition-opacity text-primary"><Shield size={16} /></div>
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Active Keys</div>
-                        <div className="text-2xl font-bold">00</div>
-                        <div className="text-[10px] text-muted-foreground mt-1">No Keys Provisioned</div>
-                    </div>
-                    <div className="border border-[var(--border)] p-4 relative group hover:border-primary transition-colors bg-black/20">
-                        <div className="absolute top-2 right-2 opacity-20 group-hover:opacity-100 transition-opacity text-success"><Lock size={16} /></div>
-                        <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Security Status</div>
-                        <div className="text-2xl font-bold text-success font-bold uppercase text-sm">Optimal</div>
-                        <div className="text-[10px] text-muted-foreground mt-1 text-success">All Protocols Active</div>
-                    </div>
-                </div>
-
-                {/* API Keys Table */}
-                <div className="border border-[var(--border)] mb-8 bg-black/10">
-                    <div className="h-10 bg-muted/30 border-b border-[var(--border)] flex items-center px-4 justify-between">
-                        <h3 className="text-xs uppercase tracking-widest font-bold text-white/50">Access Credentials</h3>
-                        <button
-                            onClick={handleRollKey}
-                            disabled={!!freshKey}
-                            className="text-[10px] bg-primary text-white px-3 py-1 font-bold uppercase hover:opacity-90 transition-opacity flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            <RefreshCw size={10} />
-                            Roll New Key
-                        </button>
-                    </div>
-
-                    <div className="grid grid-cols-4 p-3 border-b border-[var(--border)] bg-input text-[10px] text-muted-foreground uppercase tracking-[0.2em] font-bold">
-                        <div>Label</div>
-                        <div>Token</div>
-                        <div>Created</div>
-                        <div>Action</div>
-                    </div>
-
-                    {freshKey && (
-                        <div className="mb-8 p-4 border border-success/50 bg-success/10 flex flex-col gap-2 rounded-sm">
-                            <div className="flex items-center justify-between">
-                                <span className="text-xs font-bold text-success uppercase tracking-widest flex items-center gap-2">
-                                    <Shield size={12} />
-                                    New Key Generated
-                                </span>
-                                <button onClick={() => setFreshKey(null)} className="text-[10px] text-muted-foreground hover:text-white">DISMISS</button>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <code className="bg-black/50 p-2 rounded border border-white/10 font-mono text-xs flex-1 text-white">
-                                    {freshKey}
-                                </code>
+                            <div className="flex items-center gap-2 bg-black/50 border border-white/10 rounded px-3 py-2.5 font-mono text-sm text-white">
+                                <span className="flex-1 break-all">{newKey}</span>
                                 <button
-                                    onClick={() => navigator.clipboard.writeText(freshKey)}
-                                    className="bg-success text-black px-3 py-2 text-[10px] font-bold uppercase hover:opacity-90 flex items-center gap-1"
+                                    onClick={() => navigator.clipboard.writeText(newKey)}
+                                    className="text-[#666] hover:text-white transition-colors"
                                 >
-                                    <Copy size={12} /> Copy
+                                    <Copy size={16} />
                                 </button>
                             </div>
-                            <div className="text-[10px] text-muted-foreground">
-                                ⚠️ Copy this now. You won&apos;t be able to see it again.
-                            </div>
                         </div>
-                    )}
-
-                    {keys.length > 0 ? (
-                        keys.map((key) => (
-                            <div key={key.id} className="grid grid-cols-4 p-4 border-b border-[var(--border)] hover:bg-muted/20 transition-colors text-xs items-center group">
-                                <div className="font-bold">{key.label}</div>
-                                <div className="font-mono text-muted-foreground flex items-center gap-2">
-                                    <span className="text-primary">{key.prefix}</span>
-                                    <span className="blur-sm select-none transition-all text-muted-foreground opacity-50">
-                                        •••••••••••••••••••••
-                                    </span>
-                                </div>
-                                <div className="text-muted-foreground tabular-nums">{key.created}</div>
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        className="border border-[var(--border)] px-2 py-1 text-[10px] uppercase hover:bg-error hover:text-white hover:border-error transition-colors text-muted-foreground"
-                                        onClick={() => handleRevoke(key.id)}
-                                    >
-                                        Revoke
-                                    </button>
-                                </div>
-                            </div>
-                        ))
-                    ) : (
-                        <div className="p-16 flex flex-col items-center justify-center text-center opacity-40">
-                            <Shield size={32} className="mb-4 text-muted-foreground" />
-                            <div className="text-[10px] uppercase font-bold tracking-[0.2em]">No Credentials Provisioned</div>
-                            <p className="text-[8px] text-muted-foreground mt-2 max-w-[250px] uppercase tracking-wider">Your API keys will appear here once you roll your first secret.</p>
-                        </div>
-                    )}
-                </div>
-
-                {/* Usage Graph Mock - Clean Replacement */}
-                <div className="border border-white/5 p-12 flex flex-col items-center justify-center text-center h-48 bg-black/40">
-                    <Activity className="text-muted-foreground mb-4 opacity-10" size={32} />
-                    <div className="text-[10px] uppercase tracking-[0.2em] font-bold text-white/30">Analytics Engine Offline</div>
-                    <div className="text-[8px] text-muted-foreground mt-1 max-w-sm uppercase tracking-tighter opacity-50">
-                        Traffic visualization is enabled for enterprise accounts with &gt; 10,000 monthly requests.
                     </div>
+                    <button
+                        onClick={() => setNewKey(null)}
+                        className="mt-4 text-xs font-bold text-[#FF4F00] uppercase tracking-wide hover:underline"
+                    >
+                        I have saved it
+                    </button>
                 </div>
+            )}
 
+            <div className="rounded-xl border border-white/10 bg-[#09090b] overflow-hidden">
+                <div className="grid grid-cols-12 px-6 py-3 border-b border-white/10 bg-white/[0.02] text-[10px] font-bold uppercase text-[#666] tracking-wider">
+                    <div className="col-span-4">Name</div>
+                    <div className="col-span-4">Key Prefix</div>
+                    <div className="col-span-2">Created</div>
+                    <div className="col-span-2 text-right">Status</div>
+                </div>
+                <div className="divide-y divide-white/5">
+                    {loading && <div className="p-6 text-[#666] text-sm text-center">Loading vault...</div>}
+                    {keys.map((key) => (
+                        <div key={key.id} className="grid grid-cols-12 px-6 py-4 items-center text-sm hover:bg-white/[0.02] transition-colors">
+                            <div className="col-span-4 font-medium text-white">{key.name}</div>
+                            <div className="col-span-4 font-mono text-[#888]">{key.key_prefix}</div>
+                            <div className="col-span-2 text-[#666] text-xs">
+                                {new Date(key.created_at).toLocaleDateString()}
+                            </div>
+                            <div className="col-span-2 text-right">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-[#00E054]/10 text-[#00E054]">
+                                    ACTIVE
+                                </span>
+                            </div>
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );

@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import puppeteer from "puppeteer";
+import QRCode from "qrcode";
 import { UsageService } from "@/lib/services/usage";
-import { PdfRequestSchema } from "@/lib/types/schema";
-
-export const maxDuration = 60; // Allow 60s for PDF generation
+import { QrRequestSchema } from "@/lib/types/schema";
 
 export async function POST(req: NextRequest) {
     const startTime = performance.now();
@@ -21,53 +19,41 @@ export async function POST(req: NextRequest) {
 
         // 2. Parse Body
         const json = await req.json();
-        const { url, format, print_background } = PdfRequestSchema.parse(json);
+        const { text, width, color } = QrRequestSchema.parse(json);
 
-        // 3. Launch Puppeteer (Ritan Engine)
-        // Uses standard puppeteer (works locally + Node runtimes)
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        // 3. Generate QR (Ritan Engine)
+        const dataUrl = await QRCode.toDataURL(text, {
+            width: width,
+            color: {
+                dark: color === "black" ? "#000000" : color === "blue" ? "#0000FF" : "#FF0000",
+                light: "#FFFFFF"
+            }
         });
 
-        const page = await browser.newPage();
+        // Remove "data:image/png;base64," prefix for cleaner API response
+        const base64Image = dataUrl.replace(/^data:image\/png;base64,/, "");
 
-        // Optimize for Print
-        await page.setViewport({ width: 1200, height: 800 });
-        await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
-
-        // Generate PDF
-        const pdfBuffer = await page.pdf({
-            format: format as any,
-            printBackground: print_background,
-            margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" }
-        });
-
-        await browser.close();
-
-        // 4. Log Usage (5 Credits for PDF)
+        // 4. Log Usage (1 Credit for QR)
         const duration = Math.round(performance.now() - startTime);
         UsageService.logRequest({
             user_id: userId,
-            endpoint: "/api/v1/pdf",
+            endpoint: "/api/v1/qr",
             method: "POST",
             status_code: 200,
             duration_ms: duration,
         });
 
-        // 5. Return PDF (Base64 for Unified API)
-        // Returning Base64 is cleaner for a universal JSON API than binary streams
-        const base64Pdf = Buffer.from(pdfBuffer).toString('base64');
-
+        // 5. Return Image
         return NextResponse.json({
             success: true,
             data: {
-                base64: base64Pdf,
-                filename: `ritan-${Date.now()}.pdf`
+                base64: base64Image,
+                mime_type: "image/png",
+                filename: `qr-${Date.now()}.png`
             },
             meta: {
                 duration_ms: duration,
-                credits_used: 5 // Premium charge
+                credits_used: 1
             }
         });
 
@@ -87,7 +73,7 @@ export async function POST(req: NextRequest) {
         if (userId) {
             UsageService.logRequest({
                 user_id: userId,
-                endpoint: "/api/v1/pdf",
+                endpoint: "/api/v1/qr",
                 method: "POST",
                 status_code: status,
                 duration_ms: duration,

@@ -7,8 +7,8 @@ export async function middleware(request: NextRequest) {
         console.error("❌ FATAL: SUPABASE_SERVICE_ROLE_KEY is missing in Vercel Environment Variables.");
         return NextResponse.json({ error: "Server Misconfiguration: Missing Service Role Key" }, { status: 500 });
     }
-    // 1. Filter: Intercept request to PDF API
-    if (request.nextUrl.pathname.startsWith('/api/v1/pdf')) {
+    // 1. Filter: Intercept request to Scrape API
+    if (request.nextUrl.pathname.startsWith('/api/v1/scrape')) {
         const authHeader = request.headers.get('authorization');
 
         // 2. Check: Is Header Missing?

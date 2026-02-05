@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import puppeteer from "puppeteer";
+import dns from "dns/promises";
 import { UsageService } from "@/lib/services/usage";
-import { PdfRequestSchema } from "@/lib/types/schema";
+import { DnsRequestSchema } from "@/lib/types/schema";
 
-export const maxDuration = 60; // Allow 60s for PDF generation
+export const maxDuration = 10;
 
 export async function POST(req: NextRequest) {
     const startTime = performance.now();
@@ -21,53 +21,55 @@ export async function POST(req: NextRequest) {
 
         // 2. Parse Body
         const json = await req.json();
-        const { url, format, print_background } = PdfRequestSchema.parse(json);
+        const { domain, type } = DnsRequestSchema.parse(json);
 
-        // 3. Launch Puppeteer (Ritan Engine)
-        // Uses standard puppeteer (works locally + Node runtimes)
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
-        });
+        // 3. Resolve DNS (Ritan Engine)
+        let records: any = [];
 
-        const page = await browser.newPage();
+        // Map types to dns.promises functions
+        switch (type) {
+            case "A":
+                records = await dns.resolve4(domain);
+                break;
+            case "MX":
+                records = await dns.resolveMx(domain);
+                break;
+            case "TXT":
+                records = await dns.resolveTxt(domain);
+                // Flatten TXT records array of arrays
+                records = records.flat();
+                break;
+            case "NS":
+                records = await dns.resolveNs(domain);
+                break;
+            case "CNAME":
+                records = await dns.resolveCname(domain);
+                break;
+            default:
+                records = await dns.resolve4(domain);
+        }
 
-        // Optimize for Print
-        await page.setViewport({ width: 1200, height: 800 });
-        await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
-
-        // Generate PDF
-        const pdfBuffer = await page.pdf({
-            format: format as any,
-            printBackground: print_background,
-            margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" }
-        });
-
-        await browser.close();
-
-        // 4. Log Usage (5 Credits for PDF)
+        // 4. Log Usage (1 Credit for DNS)
         const duration = Math.round(performance.now() - startTime);
         UsageService.logRequest({
             user_id: userId,
-            endpoint: "/api/v1/pdf",
+            endpoint: "/api/v1/dns",
             method: "POST",
             status_code: 200,
             duration_ms: duration,
         });
 
-        // 5. Return PDF (Base64 for Unified API)
-        // Returning Base64 is cleaner for a universal JSON API than binary streams
-        const base64Pdf = Buffer.from(pdfBuffer).toString('base64');
-
+        // 5. Return Records
         return NextResponse.json({
             success: true,
             data: {
-                base64: base64Pdf,
-                filename: `ritan-${Date.now()}.pdf`
+                domain,
+                type,
+                records
             },
             meta: {
                 duration_ms: duration,
-                credits_used: 5 // Premium charge
+                credits_used: 1
             }
         });
 
@@ -80,6 +82,10 @@ export async function POST(req: NextRequest) {
             status = 400;
             errorMessage = "Invalid Input";
             errorDetails = error.errors;
+        } else if ((error as any).code?.startsWith("ENODATA") || (error as any).code?.startsWith("ENOTFOUND")) {
+            status = 404;
+            errorMessage = "Records Not Found";
+            errorDetails = `No ${type} records found for ${domain}`;
         }
 
         // Log Failure
@@ -87,7 +93,7 @@ export async function POST(req: NextRequest) {
         if (userId) {
             UsageService.logRequest({
                 user_id: userId,
-                endpoint: "/api/v1/pdf",
+                endpoint: "/api/v1/dns",
                 method: "POST",
                 status_code: status,
                 duration_ms: duration,

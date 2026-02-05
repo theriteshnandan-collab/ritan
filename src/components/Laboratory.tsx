@@ -1,120 +1,183 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, Save, Code, Eye } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { useState, useEffect } from "react";
+import { Play, Terminal, FileText, Mail, Camera, QrCode, Globe } from "lucide-react";
+import PrecisionLoader from "./PrecisionLoader";
+import DataViewer from "./DataViewer";
+
+type EngineType = "scrape" | "pdf" | "mail" | "shot" | "qr" | "dns";
 
 export default function Laboratory() {
-    const [html, setHtml] = useState(`<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: sans-serif; padding: 40px; color: #333; }
-    .header { border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
-    h1 { margin: 0; text-transform: uppercase; font-size: 24px; letter-spacing: 2px; }
-    .invoice-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-    .total { font-weight: bold; font-size: 18px; margin-top: 20px; border-top: 1px solid #ccc; padding-top: 10px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1>Invoice #001</h1>
-    <p>Date: Feb 04, 2026</p>
-  </div>
-  <div class="invoice-row"><span>Consulting Services</span><span>$1,000.00</span></div>
-  <div class="invoice-row"><span>API Optimization</span><span>$500.00</span></div>
-  <div class="total invoice-row"><span>TOTAL</span><span>$1,500.00</span></div>
-</body>
-</html>`);
+    const [engine, setEngine] = useState<EngineType>("scrape");
+    const [loading, setLoading] = useState(false);
+    const [result, setResult] = useState<any>(null);
+    const [status, setStatus] = useState<"IDLE" | "RUNNING" | "SUCCESS" | "ERROR">("IDLE");
 
-    const [saving, setSaving] = useState(false);
-    const [lastSaved, setLastSaved] = useState<Date | null>(null);
-    const supabase = createClient();
+    // Inputs
+    const [url, setUrl] = useState("");
+    const [format, setFormat] = useState<"markdown" | "json">("markdown");
+    const [email, setEmail] = useState("");
+    const [subject, setSubject] = useState("");
+    const [html, setHtml] = useState("");
+    const [qrText, setQrText] = useState("");
+    const [domain, setDomain] = useState("");
 
-    // Auto-save logic
-    const handleSave = async () => {
-        setSaving(true);
+    const handleExecute = async () => {
+        setLoading(true);
+        setStatus("RUNNING");
+        setResult(null);
+
         try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (!user) {
-                alert("Please log in to save templates.");
-                return;
+            let endpoint = "";
+            let body = {};
+
+            switch (engine) {
+                case "scrape":
+                    endpoint = "/api/v1/scrape";
+                    body = { url, format };
+                    break;
+                case "pdf":
+                    endpoint = "/api/v1/pdf";
+                    body = { url, format: "a4" };
+                    break;
+                case "mail":
+                    endpoint = "/api/v1/mail";
+                    body = { to: email, subject, html };
+                    break;
+                case "shot":
+                    endpoint = "/api/v1/shot";
+                    body = { url, full_page: true };
+                    break;
+                case "qr":
+                    endpoint = "/api/v1/qr";
+                    body = { text: qrText, color: "black" };
+                    break;
+                case "dns":
+                    endpoint = "/api/v1/dns";
+                    body = { domain, type: "A" };
+                    break;
             }
 
-            const { error } = await supabase
-                .from('templates')
-                .insert({
-                    user_id: user.id,
-                    name: 'My Custom Invoice', // Hardcoded for MVP simplicity 
-                    html_content: html
-                });
+            const res = await fetch(endpoint, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-user-id": "lab-user-uuid" // Mock ID for Lab
+                },
+                body: JSON.stringify(body)
+            });
 
-            if (error) throw error;
-            setLastSaved(new Date());
+            const data = await res.json();
+
+            if (data.success || data.records) { // DNS returns records, others return success
+                setResult(data.data || data); // Store the payload
+                setStatus("SUCCESS");
+            } else {
+                setResult(data);
+                setStatus("ERROR");
+            }
+
         } catch (err) {
-            console.error("Save failed:", err);
-            // alert("Failed to save template.");
+            setResult({ error: "Network Failure" });
+            setStatus("ERROR");
         } finally {
-            setSaving(false);
+            setLoading(false);
         }
     };
 
     return (
-        <main className="flex-1 flex flex-col h-full overflow-hidden bg-background">
-            {/* Toolbar */}
-            <header className="flex justify-between items-center p-4 border-b border-[var(--border)] shrink-0 bg-muted/10">
-                <div className="flex items-center gap-4">
-                    <h2 className="text-lg font-bold uppercase tracking-tight flex items-center gap-2">
-                        <Code size={18} />
-                        The Laboratory
-                    </h2>
-                    <span className="text-[10px] border border-[var(--border)] px-2 py-0.5 text-muted-foreground uppercase tracking-widest">
-                        Visual Builder v1.0
-                    </span>
-                </div>
-                <div className="flex items-center gap-3">
-                    {lastSaved && <span className="text-[10px] text-muted-foreground uppercase font-mono tracking-widest mr-2">Saved {lastSaved.toLocaleTimeString()}</span>}
+        <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-[#09090b] border border-white/10 rounded-xl m-4 shadow-2xl relative">
+
+            {/* Tab Bar (Engine Selector) */}
+            <div className="flex items-center gap-1 p-2 border-b border-white/10 bg-[#000]">
+                {[
+                    { id: "scrape", icon: Terminal, label: "Scrape" },
+                    { id: "pdf", icon: FileText, label: "PDF" },
+                    { id: "mail", icon: Mail, label: "Mail" },
+                    { id: "shot", icon: Camera, label: "Shot" },
+                    { id: "qr", icon: QrCode, label: "QR" },
+                    { id: "dns", icon: Globe, label: "DNS" },
+                ].map((item) => (
                     <button
-                        onClick={handleSave}
-                        disabled={saving}
-                        className="bg-primary text-primary-foreground px-4 py-2 text-xs font-bold uppercase tracking-widest hover:opacity-90 flex items-center gap-2"
+                        key={item.id}
+                        onClick={() => { setEngine(item.id as EngineType); setResult(null); setStatus("IDLE"); }}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-[4px] text-[11px] font-bold uppercase tracking-wide transition-all ${engine === item.id
+                            ? "bg-white/10 text-white shadow-sm"
+                            : "text-[#666] hover:text-white hover:bg-white/5"
+                            }`}
                     >
-                        {saving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
-                        Save_Template
+                        <item.icon size={14} />
+                        {item.label}
                     </button>
-                </div>
-            </header>
-
-            {/* Split View */}
-            <div className="flex-1 flex overflow-hidden">
-                {/* Editor Pane (Left) */}
-                <div className="w-1/2 flex flex-col border-r border-[var(--border)]">
-                    <div className="px-4 py-2 bg-muted/20 border-b border-[var(--border)] text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex justify-between">
-                        <span>HTML Source</span>
-                        <span>Editor Mode</span>
-                    </div>
-                    <textarea
-                        value={html}
-                        onChange={(e) => setHtml(e.target.value)}
-                        className="flex-1 bg-[#09090b] text-white font-mono text-sm p-4 outline-none resize-none leading-relaxed"
-                        spellCheck={false}
-                    />
-                </div>
-
-                {/* Preview Pane (Right) */}
-                <div className="w-1/2 flex flex-col bg-white">
-                    <div className="px-4 py-2 bg-muted/20 border-b border-[var(--border)] text-[10px] font-bold uppercase tracking-widest text-muted-foreground flex justify-between border-l border-[var(--border)]">
-                        <span>Live Preview</span>
-                        <span className="flex items-center gap-1"><Eye size={10} /> Render</span>
-                    </div>
-                    <iframe
-                        srcDoc={html}
-                        className="flex-1 w-full h-full border-none box-border"
-                        title="Preview"
-                        sandbox="allow-scripts"
-                    />
-                </div>
+                ))}
             </div>
-        </main>
+
+            {/* Control Deck (Inputs) */}
+            <div className="h-14 border-b border-white/10 flex items-center px-4 gap-4 bg-[#09090b]">
+                {loading && <PrecisionLoader />}
+
+                {/* Status Dot */}
+                <div className={`w-2 h-2 rounded-full ${status === "IDLE" ? "bg-white/20" : status === "RUNNING" ? "bg-[#FF4F00] animate-pulse" : status === "SUCCESS" ? "bg-[#00E054]" : "bg-red-500"}`} />
+
+                {/* Dynamic Inputs */}
+                <div className="flex-1 flex items-center gap-4">
+                    {(engine === "scrape" || engine === "pdf" || engine === "shot") && (
+                        <input
+                            type="text"
+                            value={url}
+                            onChange={(e) => setUrl(e.target.value)}
+                            placeholder="https://example.com"
+                            className="flex-1 bg-transparent text-white font-mono text-xs outline-none placeholder:text-white/20"
+                        />
+                    )}
+                    {engine === "mail" && (
+                        <>
+                            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="recipient@example.com" className="bg-transparent text-white font-mono text-xs outline-none w-48 border-b border-white/10" />
+                            <input type="text" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject..." className="flex-1 bg-transparent text-white font-mono text-xs outline-none" />
+                        </>
+                    )}
+                    {engine === "qr" && (
+                        <input
+                            type="text"
+                            value={qrText}
+                            onChange={(e) => setQrText(e.target.value)}
+                            placeholder="Enter text for QR Code..."
+                            className="flex-1 bg-transparent text-white font-mono text-xs outline-none placeholder:text-white/20"
+                        />
+                    )}
+                    {engine === "dns" && (
+                        <input
+                            type="text"
+                            value={domain}
+                            onChange={(e) => setDomain(e.target.value)}
+                            placeholder="example.com"
+                            className="flex-1 bg-transparent text-white font-mono text-xs outline-none placeholder:text-white/20"
+                        />
+                    )}
+                </div>
+
+                {/* Execute Button */}
+                <button
+                    onClick={handleExecute}
+                    disabled={loading}
+                    className="bg-[#FF4F00] text-white px-4 py-1.5 text-[10px] font-bold uppercase tracking-widest hover:bg-[#FF6F30] rounded-[2px] disabled:opacity-50 flex items-center gap-2"
+                >
+                    {loading ? "PROCESSING" : "EXECUTE"}
+                </button>
+            </div>
+
+            {/* Main Viewport */}
+            <div className="flex-1 flex overflow-hidden relative bg-[#050505] font-mono text-xs text-[#888]">
+                {!result && !loading && (
+                    <div className="absolute inset-0 flex items-center justify-center opacity-30 select-none pointer-events-none">
+                        <div className="text-center space-y-2">
+                            <Terminal size={32} className="mx-auto text-white/20" />
+                            <p>AWAITING COMMAND</p>
+                        </div>
+                    </div>
+                )}
+                {result && <DataViewer data={result} />}
+            </div>
+        </div>
     );
 }

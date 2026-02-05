@@ -2,9 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import puppeteer from "puppeteer";
 import { UsageService } from "@/lib/services/usage";
-import { PdfRequestSchema } from "@/lib/types/schema";
+import { ShotRequestSchema } from "@/lib/types/schema";
 
-export const maxDuration = 60; // Allow 60s for PDF generation
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
     const startTime = performance.now();
@@ -21,10 +21,9 @@ export async function POST(req: NextRequest) {
 
         // 2. Parse Body
         const json = await req.json();
-        const { url, format, print_background } = PdfRequestSchema.parse(json);
+        const { url, width, height, full_page } = ShotRequestSchema.parse(json);
 
         // 3. Launch Puppeteer (Ritan Engine)
-        // Uses standard puppeteer (works locally + Node runtimes)
         const browser = await puppeteer.launch({
             headless: true,
             args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -32,42 +31,42 @@ export async function POST(req: NextRequest) {
 
         const page = await browser.newPage();
 
-        // Optimize for Print
-        await page.setViewport({ width: 1200, height: 800 });
+        // Optimize Viewport
+        await page.setViewport({ width, height });
         await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
 
-        // Generate PDF
-        const pdfBuffer = await page.pdf({
-            format: format as any,
-            printBackground: print_background,
-            margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" }
+        // Capture Screenshot
+        const buffer = await page.screenshot({
+            fullPage: full_page,
+            type: "png",
+            encoding: "binary"
         });
 
         await browser.close();
 
-        // 4. Log Usage (5 Credits for PDF)
+        // 4. Log Usage (3 Credits for Shot)
         const duration = Math.round(performance.now() - startTime);
         UsageService.logRequest({
             user_id: userId,
-            endpoint: "/api/v1/pdf",
+            endpoint: "/api/v1/shot",
             method: "POST",
             status_code: 200,
             duration_ms: duration,
         });
 
-        // 5. Return PDF (Base64 for Unified API)
-        // Returning Base64 is cleaner for a universal JSON API than binary streams
-        const base64Pdf = Buffer.from(pdfBuffer).toString('base64');
+        // 5. Return Image (Base64)
+        const base64Image = Buffer.from(buffer).toString('base64');
 
         return NextResponse.json({
             success: true,
             data: {
-                base64: base64Pdf,
-                filename: `ritan-${Date.now()}.pdf`
+                base64: base64Image,
+                mime_type: "image/png",
+                filename: `shot-${Date.now()}.png`
             },
             meta: {
                 duration_ms: duration,
-                credits_used: 5 // Premium charge
+                credits_used: 3
             }
         });
 
@@ -87,7 +86,7 @@ export async function POST(req: NextRequest) {
         if (userId) {
             UsageService.logRequest({
                 user_id: userId,
-                endpoint: "/api/v1/pdf",
+                endpoint: "/api/v1/shot",
                 method: "POST",
                 status_code: status,
                 duration_ms: duration,

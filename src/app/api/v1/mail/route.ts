@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import puppeteer from "puppeteer";
+import { Resend } from "resend";
 import { UsageService } from "@/lib/services/usage";
-import { PdfRequestSchema } from "@/lib/types/schema";
+import { MailRequestSchema } from "@/lib/types/schema";
 
-export const maxDuration = 60; // Allow 60s for PDF generation
+const resend = new Resend(process.env.RESEND_API_KEY || "re_123456789"); // Default to prevent crash if not set
 
 export async function POST(req: NextRequest) {
     const startTime = performance.now();
@@ -21,53 +21,44 @@ export async function POST(req: NextRequest) {
 
         // 2. Parse Body
         const json = await req.json();
-        const { url, format, print_background } = PdfRequestSchema.parse(json);
+        const { to, subject, html, from_name } = MailRequestSchema.parse(json);
 
-        // 3. Launch Puppeteer (Ritan Engine)
-        // Uses standard puppeteer (works locally + Node runtimes)
-        const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        // 3. Send Email (Ritan Engine)
+        if (!process.env.RESEND_API_KEY) {
+            throw new Error("RESEND_API_KEY is not configured.");
+        }
+
+        const { data, error } = await resend.emails.send({
+            from: `${from_name || "Ritan"} <onboarding@resend.dev>`, // Default Resend Domain
+            to: [to],
+            subject: subject,
+            html: html,
         });
 
-        const page = await browser.newPage();
+        if (error) {
+            throw new Error(error.message);
+        }
 
-        // Optimize for Print
-        await page.setViewport({ width: 1200, height: 800 });
-        await page.goto(url, { waitUntil: 'networkidle0', timeout: 30000 });
-
-        // Generate PDF
-        const pdfBuffer = await page.pdf({
-            format: format as any,
-            printBackground: print_background,
-            margin: { top: "20px", bottom: "20px", left: "20px", right: "20px" }
-        });
-
-        await browser.close();
-
-        // 4. Log Usage (5 Credits for PDF)
+        // 4. Log Usage (2 Credits for Mail)
         const duration = Math.round(performance.now() - startTime);
         UsageService.logRequest({
             user_id: userId,
-            endpoint: "/api/v1/pdf",
+            endpoint: "/api/v1/mail",
             method: "POST",
             status_code: 200,
             duration_ms: duration,
         });
 
-        // 5. Return PDF (Base64 for Unified API)
-        // Returning Base64 is cleaner for a universal JSON API than binary streams
-        const base64Pdf = Buffer.from(pdfBuffer).toString('base64');
-
+        // 5. Return Success
         return NextResponse.json({
             success: true,
             data: {
-                base64: base64Pdf,
-                filename: `ritan-${Date.now()}.pdf`
+                id: data?.id,
+                status: "sent"
             },
             meta: {
                 duration_ms: duration,
-                credits_used: 5 // Premium charge
+                credits_used: 2
             }
         });
 
@@ -87,7 +78,7 @@ export async function POST(req: NextRequest) {
         if (userId) {
             UsageService.logRequest({
                 user_id: userId,
-                endpoint: "/api/v1/pdf",
+                endpoint: "/api/v1/mail",
                 method: "POST",
                 status_code: status,
                 duration_ms: duration,
