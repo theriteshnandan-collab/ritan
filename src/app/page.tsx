@@ -63,7 +63,7 @@ export default function LandingPage() {
 
       {/* Footer */}
       <footer className="py-12 border-t border-white/5 text-center text-[#444] text-xs">
-        <p>© 2026 SCRAPE-JET SYSTEMS. ALL RIGHTS RESERVED.</p>
+        <p>© 2026 RITAN SYSTEMS. ALL RIGHTS RESERVED.</p>
       </footer>
     </main>
   );
